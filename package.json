@@ -1,0 +1,13 @@
+{
+  "name": "keplero-orbite",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "build": "mkdir -p dist && cp index.html dist/index.html"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Keplero: Orbite Ellittiche",
+  "description": "Un simulatore interattivo delle leggi di Keplero e del moto dei pianeti nel sistema solare.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

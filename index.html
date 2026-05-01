@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keplero: Orbite Ellittiche</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Babel for JSX in-browser transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19",
+        "react-dom/client": "https://esm.sh/react-dom@19/client",
+        "motion/react": "https://esm.sh/motion@12/react",
+        "lucide-react": "https://esm.sh/lucide-react"
+      }
+    }
+    </script>
+
+    <style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #050505;
+            color: #d1d5db;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        /* Custom UI Elements */
+        .hud-border {
+            position: relative;
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+        }
+
+        .hud-border::before,
+        .hud-border::after,
+        .hud-border .corner-bl,
+        .hud-border .corner-br {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: #22d3ee;
+            border-style: solid;
+        }
+
+        .hud-border::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+        .hud-border::after { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+        .hud-border .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+        .hud-border .corner-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: rgba(34, 211, 238, 0.1);
+            height: 2px;
+            border-radius: 1px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 10px;
+            background: #22d3ee;
+            border-radius: 0;
+            border: none;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+        }
+
+        .orbit-label {
+            text-shadow: 0 0 8px currentColor;
+        }
+    </style>
+</head>
+<body class="bg-[#050505] text-[#d1d5db] select-none">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useEffect, useRef, useState, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { motion, AnimatePresence } from 'motion/react';
+        import { 
+            Info, HelpCircle, ChevronLeft, ChevronRight, X, Play, Settings2, Table2, 
+            Circle, Activity, LayoutGrid, Cpu
+        } from 'lucide-react';
+
+        const COLORS = {
+            mercurio: '#55ffff',
+            venere: '#55ff55',
+            terra: '#5555ff',
+            marte: '#ff5555',
+            giove: '#00aa00',
+            saturno: '#00aaaa',
+            luna: '#ffffff',
+            sole: '#ffff00',
+            star: '#4c4c00'
+        };
+
+        const PLANETS_DATA = {
+            mercurio: { a: 38.7, e: 0.2056, inc: 7.0 / 57.3, long: 77.1 / 57.3, p: 87.9, color: COLORS.mercurio },
+            venere:   { a: 72.3, e: 0.0067, inc: 3.4 / 57.3, long: 131.2 / 57.3, p: 224.7, color: COLORS.venere },
+            terra:    { a: 100,  e: 0.0167, inc: 0,        long: 102.5 / 57.3, p: 365.2, color: COLORS.terra },
+            marte:    { a: 140,  e: 0.0933, inc: 1.8 / 57.3, long: 335.6 / 57.3, p: 687.0, color: COLORS.marte },
+            giove:    { a: 180,  e: 0.0484, inc: 1.3 / 57.3, long: 14.0 / 57.3,  p: 4332.6, color: COLORS.giove },
+            saturno:  { a: 210,  e: 0.0556, inc: 2.5 / 57.3, long: 92.6 / 57.3,  p: 10759.2, color: COLORS.saturno },
+            luna:     { a: 15,   e: 0.0549, inc: 0,        long: 0,          p: 27.3,    color: COLORS.luna }
+        };
+
+        function App() {
+            const canvasRef = useRef(null);
+            const [vis, setVis] = useState({
+                mercurio: false, venere: true, terra: true, luna: false,
+                marte: true, giove: false, saturno: false,
+                traccia: true, nomi: true, stelleFisse: true 
+            });
+            const [simulationSpeed, setSimulationSpeed] = useState(1.0);
+            const [isRunning, setIsRunning] = useState(true);
+            const [zoom, setZoom] = useState(1.0);
+            const [showHelp, setShowHelp] = useState(false);
+            const [helpPage, setHelpPage] = useState(0);
+
+            const anglesRef = useRef({
+                mercurio: 0, venere: 0, terra: 0, marte: 0, giove: 0, saturno: 0, luna: 0
+            });
+            const tracesRef = useRef({
+                mercurio: [], venere: [], terra: [], marte: [], giove: [], saturno: [], luna: []
+            });
+
+            // Generate fixed star sphere points once
+            const starSphereRef = useRef(Array.from({ length: 1500 }, () => {
+                const angle = Math.random() * Math.PI * 2;
+                const variance = Math.random() * 10 - 5;
+                return { angle, variance };
+            }));
+
+            const commands = useMemo(() => [
+                { key: 'e', label: 'Mercurio', target: 'mercurio' },
+                { key: 'v', label: 'Venere', target: 'venere' },
+                { key: 't', label: 'Terra', target: 'terra' },
+                { key: 'l', label: 'Luna', target: 'luna' },
+                { key: 'm', label: 'Marte', target: 'marte' },
+                { key: 'g', label: 'Giove', target: 'giove' },
+                { key: 's', label: 'Saturno', target: 'saturno' },
+                { key: 'o', label: 'Orbite (Tracce)', target: 'traccia' },
+                { key: 'n', label: 'Nomi', target: 'nomi' },
+                { key: 'h', label: 'Guida Help', action: () => setShowHelp(true) },
+            ], []);
+
+            const toggleOption = (target) => {
+                if (target === 'traccia') {
+                    setVis(prev => {
+                        if (!prev.traccia) {
+                            Object.keys(tracesRef.current).forEach(k => tracesRef.current[k] = []);
+                        }
+                        return { ...prev, traccia: !prev.traccia };
+                    });
+                } else {
+                    setVis(prev => ({ ...prev, [target]: !prev[target] }));
+                }
+            };
+
+            const stars = useMemo(() => {
+                return Array.from({ length: 500 }, () => ({
+                    x: Math.random() * 2000,
+                    y: Math.random() * 2000,
+                    size: Math.random() * 1.5
+                }));
+            }, []);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+
+                let animationFrameId;
+
+                const render = () => {
+                    const W = canvas.width;
+                    const H = canvas.height;
+                    const mx = W * 0.6;
+                    const my = H / 2;
+
+                    ctx.fillStyle = '#050505';
+                    ctx.fillRect(0, 0, W, H);
+
+                    ctx.fillStyle = COLORS.star;
+                    stars.forEach(s => {
+                        ctx.fillRect(s.x % W, s.y % H, s.size, s.size);
+                    });
+
+                    // DRAW FIXED STAR SPHERE
+                    if (vis.stelleFisse) {
+                        const sphereRadius = 800 * zoom;
+                        ctx.save();
+                        ctx.translate(mx, my);
+                        ctx.fillStyle = '#22d3ee';
+                        
+                        starSphereRef.current.forEach(point => {
+                            ctx.globalAlpha = 0.3 + Math.random() * 0.4;
+                            const r = sphereRadius + (point.variance * 3) * zoom;
+                            const px = Math.cos(point.angle) * r;
+                            const py = Math.sin(point.angle) * r;
+                            ctx.fillRect(px, py, 1.2, 1.2);
+                        });
+                        
+                        // Label
+                        if (vis.nomi && zoom < 1.0) {
+                            ctx.globalAlpha = Math.min(1.0, (1.0 - zoom) * 2);
+                            ctx.font = 'bold 10px JetBrains Mono';
+                            ctx.textAlign = 'center';
+                            ctx.fillText("SFERA DELLE STELLE FISSE", 0, -sphereRadius - 20);
+                            ctx.textAlign = 'start';
+                        }
+                        ctx.restore();
+                        ctx.globalAlpha = 1.0;
+                    }
+
+                    let posTerra = { x: 0, y: 0 };
+
+                    Object.entries(PLANETS_DATA).forEach(([p, d]) => {
+                        if (p === 'luna') return;
+
+                        const b = d.a * Math.sqrt(1 - d.e ** 2);
+                        const f = d.a * d.e * Math.cos(d.inc);
+                        
+                        if (isRunning) {
+                            anglesRef.current[p] += (2.0 * simulationSpeed) / d.p;
+                        }
+
+                        const lx = d.a * Math.cos(anglesRef.current[p]) * Math.cos(d.inc);
+                        const ly = b * Math.sin(anglesRef.current[p]);
+                        
+                        const scale = 2 * zoom;
+                        const fx = mx + ((lx - f) * Math.cos(-d.long) + ly * Math.sin(-d.long)) * scale;
+                        const fy = my + (-(lx - f) * Math.sin(-d.long) + ly * Math.cos(-d.long)) * scale;
+
+                        if (p === 'terra') posTerra = { x: fx, y: fy };
+
+                        if (vis[p]) {
+                            if (vis.traccia) {
+                                tracesRef.current[p].push({ rx: (fx - mx), ry: (fy - my) });
+                                if (tracesRef.current[p].length > 5000) tracesRef.current[p].shift();
+                                
+                                ctx.fillStyle = d.color;
+                                ctx.globalAlpha = 0.4;
+                                tracesRef.current[p].forEach(pt => {
+                                    ctx.fillRect(mx + pt.rx, my + pt.ry, 1, 1);
+                                });
+                                ctx.globalAlpha = 1.0;
+                            }
+
+                            ctx.shadowBlur = 10;
+                            ctx.shadowColor = d.color;
+                            ctx.beginPath();
+                            ctx.arc(fx, fy, Math.max(1, 4 * Math.sqrt(zoom)), 0, Math.PI * 2);
+                            ctx.fillStyle = d.color;
+                            ctx.fill();
+                            ctx.shadowBlur = 0;
+
+                            if (vis.nomi) {
+                                ctx.font = '11px JetBrains Mono';
+                                ctx.fillStyle = d.color;
+                                ctx.fillText(p.toUpperCase(), fx + 10, fy - 10);
+                            }
+
+
+                        }
+                    });
+
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = COLORS.sole;
+                    ctx.beginPath();
+                    ctx.arc(mx, my, Math.max(2, 8 * Math.sqrt(zoom)), 0, Math.PI * 2);
+                    ctx.fillStyle = COLORS.sole;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    
+                    if (vis.nomi) {
+                        ctx.font = 'bold 12px JetBrains Mono';
+                        ctx.fillStyle = COLORS.sole;
+                        ctx.fillText("SOLE", mx - 15, my + 28);
+                    }
+
+                    if (vis.luna && vis.terra) {
+                        const dLuna = PLANETS_DATA.luna;
+                        if (isRunning) {
+                            anglesRef.current.luna += (2.0 * simulationSpeed) / dLuna.p;
+                        }
+                        const lx = posTerra.x + (dLuna.a * Math.cos(anglesRef.current.luna)) * 1.5 * zoom;
+                        const ly = posTerra.y + (dLuna.a * Math.sin(anglesRef.current.luna)) * 1.5 * zoom;
+
+                        if (vis.traccia) {
+                            tracesRef.current.luna.push({ rx: (lx - mx), ry: (ly - my) });
+                            if (tracesRef.current.luna.length > 500) tracesRef.current.luna.shift();
+                            ctx.fillStyle = '#ffffff';
+                            ctx.globalAlpha = 0.3;
+                            tracesRef.current.luna.forEach(pt => {
+                                ctx.fillRect(mx + pt.rx, my + pt.ry, 1, 1);
+                            });
+                            ctx.globalAlpha = 1.0;
+                        }
+
+                        ctx.beginPath();
+                        ctx.arc(lx, ly, Math.max(1, 2 * Math.sqrt(zoom)), 0, Math.PI * 2);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fill();
+                        if (vis.nomi) {
+                            ctx.font = '9px JetBrains Mono';
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillText("LUNA", lx + 5, ly - 5);
+                        }
+                    }
+
+                    animationFrameId = requestAnimationFrame(render);
+                };
+
+                render();
+                return () => cancelAnimationFrame(animationFrameId);
+            }, [vis, stars, simulationSpeed, isRunning, zoom]);
+            
+            // Clear traces when zoom changes
+            useEffect(() => {
+                Object.keys(tracesRef.current).forEach(key => {
+                    tracesRef.current[key] = [];
+                });
+            }, [zoom]);
+
+            useEffect(() => {
+                const handleWheel = (e) => {
+                    e.preventDefault();
+                    setZoom(prev => {
+                        const newZoom = prev * (e.deltaY > 0 ? 0.9 : 1.1);
+                        return Math.min(Math.max(newZoom, 0.2), 10.0);
+                    });
+                };
+
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    canvas.addEventListener('wheel', handleWheel, { passive: false });
+                }
+                return () => {
+                    if (canvas) canvas.removeEventListener('wheel', handleWheel);
+                };
+            }, []);
+
+            useEffect(() => {
+                const handleResize = () => {
+                    if (canvasRef.current) {
+                        canvasRef.current.width = window.innerWidth;
+                        canvasRef.current.height = window.innerHeight;
+                        Object.keys(tracesRef.current).forEach(k => tracesRef.current[k] = []);
+                    }
+                };
+                window.addEventListener('resize', handleResize);
+                handleResize();
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            useEffect(() => {
+                const handleKeydown = (e) => {
+                    const key = e.key.toLowerCase();
+                    const cmd = commands.find(c => c.key === key);
+                    if (cmd) {
+                        if (cmd.action) cmd.action();
+                        else if (cmd.target) toggleOption(cmd.target);
+                    }
+                    if (e.key === 'Escape') setShowHelp(false);
+                };
+                window.addEventListener('keydown', handleKeydown);
+                return () => window.removeEventListener('keydown', handleKeydown);
+            }, [commands]);
+
+            const helpPages = [
+                {
+                    title: "GIOVANNI KEPLERO (1571-1630)",
+                    content: [
+                        "Giovanni Keplero nacque a Weil in Württemberg nel 1571.",
+                        "Si iscrisse all'università di Tubinga dove fu istruito sul Sistema Copernicano.",
+                        "Divenne aiutante di Tycho Brahe a Praga nel 1597. Alla morte di Tycho nel 1601,",
+                        "gli successe come matematico imperiale. Sfruttando le migliori osservazioni dell'epoca,",
+                        "svelò la Meccanica del Sistema Solare.",
+                        "Scoprì le sue famose leggi enunciate nelle opere 'Astronomia Nova' del 1609",
+                        "(1^ e 2^ legge) ed 'Harmonices Mundi' del 1618 (3^ legge)."
+                    ],
+                    highlight: ["KEPLERO", "COPERNICANO", "TYCHO BRAHE", "SISTEMA SOLARE"]
+                },
+                {
+                    title: "LA PRIMA LEGGE DI KEPLERO",
+                    content: [
+                        "Teorizza la non circolarità delle orbite dei pianeti:",
+                        "",
+                        "\"LE ORBITE DEI PIANETI SONO ELLISSI - IL SOLE GIACE IN UNO DEI FUOCHI\""
+                    ],
+                    highlight: ["ELLISSI", "SOLE", "FUOCHI"]
+                },
+                {
+                    title: "LA SECONDA LEGGE DI KEPLERO",
+                    content: [
+                        "Il moto dei pianeti varia con la distanza dal Sole:",
+                        "",
+                        "\"LE AREE SPAZZATE DAI PIANETI IN TEMPI UGUALI SONO UGUALI\"",
+                        "",
+                        "Il pianeta accelera vicino al Sole (perielio) e rallenta lontano (afelio)."
+                    ],
+                    highlight: ["AREE", "TEMPI", "PERIELIO", "AFELIO"]
+                },
+                {
+                    title: "LA TERZA LEGGE DI KEPLERO",
+                    content: [
+                        "Questa legge lega i periodi di rivoluzione alle distanze dal Sole:",
+                        "",
+                        "\"IL QUADRATO DEL PERIODO DI RIVOLUZIONE E' PROPORZIONALE AL CUBO",
+                        "DELLA DISTANZA MEDIA DAL SOLE\""
+                    ],
+                    highlight: ["PERIODO", "RIVOLUZIONE", "DISTANZA"]
+                }
+            ];
+
+            return (
+                <div className="relative w-full h-screen bg-[#050505] overflow-hidden font-mono text-[#d1d5db] select-none text-[12px] uppercase">
+                    <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+
+                    {/* TOP HEADER */}
+                    <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-10 pointer-events-none">
+                        <div className="pointer-events-auto select-none">
+                            <div className="text-[10px] text-[#22d3ee] font-bold tracking-[0.4em] mb-1 uppercase">
+                                Andrea Cristofori
+                            </div>
+                            <h1 className="text-xl md:text-2xl font-bold text-white tracking-[0.1em] uppercase leading-tight">
+                                <span className="text-[#22d3ee]">Keplero</span> <span className="font-light italic ml-1">e le orbite ellittiche</span>
+                            </h1>
+                        </div>
+
+                        <div></div>
+                    </div>
+
+                    {/* DECORATIVE CORNERS */}
+                    <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-[#22d3ee]/20 pointer-events-none"></div>
+                    <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-[#22d3ee]/20 pointer-events-none"></div>
+                    <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-[#22d3ee]/20 pointer-events-none"></div>
+                    <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-[#22d3ee]/20 pointer-events-none"></div>
+
+                    {/* HUD SIDEBAR LEFT */}
+                    <div className="absolute top-24 left-6 bottom-8 w-60 flex flex-col gap-3 z-10">
+                        
+                        {/* SECTION: OGGETTI CELESTI */}
+                        <div className="p-2.5 hud-border flex-1 flex flex-col min-h-0">
+                            <div className="corner-bl"></div><div className="corner-br"></div>
+                            <div className="flex items-center gap-2 mb-2 text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-2 tracking-[0.15em] text-[10px]">
+                                <LayoutGrid size={14} />
+                                <span>OGGETTI CELESTI</span>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto pr-2 space-y-1.5 custom-scrollbar">
+                                {Object.keys(PLANETS_DATA).map(key => (
+                                    <div 
+                                        key={key} 
+                                        className="flex items-center gap-3 group cursor-pointer py-1 px-2 hover:bg-white/5 transition-colors border-l-2 border-transparent hover:border-[#22d3ee]/30" 
+                                        onClick={() => toggleOption(key)}
+                                    >
+                                        <div className={`w-3 h-3 border ${vis[key] ? 'border-[#22d3ee] bg-[#22d3ee]' : 'border-gray-700 bg-transparent'}`} 
+                                             style={{ backgroundColor: vis[key] ? PLANETS_DATA[key].color : 'transparent', borderColor: vis[key] ? PLANETS_DATA[key].color : '#374151' }}>
+                                        </div>
+                                        <span className={`tracking-widest text-[10px] transition-colors ${vis[key] ? 'text-white' : 'text-gray-600'}`}>
+                                            {key}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* SECTION: VISUALIZZAZIONE */}
+                        <div className="p-2.5 hud-border">
+                            <div className="corner-bl"></div><div className="corner-br"></div>
+                            <div className="flex items-center gap-2 mb-2 text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 tracking-[0.15em] text-[10px]">
+                                <Activity size={14} />
+                                <span>VISIBILITÀ</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                                <button 
+                                    onClick={() => toggleOption('traccia')}
+                                    className={`py-1.5 px-1 text-[9px] font-bold border transition-all ${vis.traccia ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600 hover:border-gray-500'}`}
+                                >
+                                    ORBITE
+                                </button>
+                                <button 
+                                    onClick={() => toggleOption('nomi')}
+                                    className={`py-1.5 px-1 text-[9px] font-bold border transition-all ${vis.nomi ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600 hover:border-gray-500'}`}
+                                >
+                                    NOMI
+                                </button>
+                                <button 
+                                    onClick={() => toggleOption('stelleFisse')}
+                                    className={`py-1.5 px-1 text-[9px] font-bold border transition-all ${vis.stelleFisse ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600 hover:border-gray-500'}`}
+                                >
+                                    STELLE FISSE
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* SECTION: ZOOM */}
+                        <div className="p-2.5 hud-border">
+                            <div className="corner-bl"></div><div className="corner-br"></div>
+                            <div className="flex items-center gap-2 mb-2 text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 tracking-[0.15em] text-[10px]">
+                                <Settings2 size={14} />
+                                <span>INGRANDIMENTO</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between gap-2">
+                                <button 
+                                    onClick={() => setZoom(z => Math.max(0.2, z - 0.2))}
+                                    className="flex-1 py-1 border border-[#22d3ee]/40 text-[#22d3ee] hover:bg-[#22d3ee]/10 text-md font-bold"
+                                >
+                                    -
+                                </button>
+                                <div className="text-[10px] text-white font-bold w-10 text-center">
+                                    {zoom.toFixed(1)}X
+                                </div>
+                                <button 
+                                    onClick={() => setZoom(z => Math.min(10, z + 0.2))}
+                                    className="flex-1 py-1 border border-[#22d3ee]/40 text-[#22d3ee] hover:bg-[#22d3ee]/10 text-md font-bold"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* SECTION: TEMPORIZZAZIONE */}
+                        <div className="p-2.5 hud-border">
+                            <div className="corner-bl"></div><div className="corner-br"></div>
+                            <div className="flex items-center gap-2 mb-2 text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 tracking-[0.15em] text-[10px]">
+                                <Play size={14} />
+                                <span>TEMPORIZZAZIONE</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 mb-2">
+                                <button 
+                                    onClick={() => setIsRunning(!isRunning)}
+                                    className="p-1.5 border border-[#22d3ee]/40 text-[#22d3ee] hover:bg-[#22d3ee]/10 transition-colors"
+                                >
+                                    {isRunning ? <Play className="rotate-90" size={12} fill="currentColor" /> : <Play size={12} />}
+                                </button>
+                                <div className="text-[10px] text-white font-bold opacity-70">
+                                    {simulationSpeed.toFixed(1)}X
+                                </div>
+                            </div>
+
+                            <input 
+                                type="range" min="0" max="20" step="0.5" 
+                                value={simulationSpeed} 
+                                onChange={(e) => setSimulationSpeed(parseFloat(e.target.value))}
+                                className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#22d3ee]"
+                            />
+                        </div>
+
+                        {/* BUTTON: GUIDA */}
+                        <button 
+                            onClick={() => setShowHelp(true)}
+                            className="bg-[#22d3ee] text-black font-bold py-2 tracking-[0.4em] text-[10px] hover:bg-white transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] flex items-center justify-center gap-2"
+                        >
+                            <HelpCircle size={14} />
+                            GUIDA
+                        </button>
+                    </div>
+
+                    {/* HELP MODAL */}
+                    <AnimatePresence>
+                        {showHelp && (
+                            <motion.div 
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
+                            >
+                                <motion.div 
+                                    initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                                    className="bg-[#0a0a0a] border-2 border-cyan-400/30 max-w-lg w-full p-6 relative shadow-[0_0_80px_rgba(34,211,238,0.15)]"
+                                >
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50"></div>
+                                    
+                                    <button 
+                                        onClick={() => setShowHelp(false)}
+                                        className="absolute top-4 right-4 text-cyan-400/50 hover:text-cyan-400 hover:bg-cyan-400/10 rounded-full p-2 transition-all border border-transparent hover:border-cyan-400/20"
+                                    >
+                                        <X size={20} />
+                                    </button>
+
+                                    <div className="text-center relative">
+                                        <div className="text-[10px] text-cyan-400/50 tracking-[0.5em] mb-3 uppercase">ARCHIVIO STORICO // KEPLER-LOG</div>
+                                        <h2 className="text-lg font-bold text-cyan-300 mb-6 tracking-[0.2em] border-b border-cyan-400/20 pb-3 uppercase">
+                                            {helpPages[helpPage].title}
+                                        </h2>
+                                        
+                                        <div className="space-y-3 min-h-[120px] flex flex-col justify-center px-4">
+                                            {helpPages[helpPage].content.map((line, i) => (
+                                                <p key={i} className="text-xs leading-relaxed tracking-wider text-gray-400">
+                                                    {line.split(' ').map((word, wi) => {
+                                                        const cleanWord = word.replace(/[",.()]/g, '').toUpperCase();
+                                                        const isHigh = helpPages[helpPage].highlight?.some(h => cleanWord.includes(h));
+                                                        return (
+                                                            <span key={wi} className={isHigh ? "text-yellow-400 font-bold" : ""}>
+                                                                {word}{' '}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </p>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-6 flex flex-col items-center justify-center h-44">
+                                            {helpPage === 1 && (
+                                                <div className="relative w-full h-full flex flex-col items-center">
+                                                    <svg viewBox="0 0 256 128" className="w-full h-32 overflow-visible">
+                                                        <ellipse cx="128" cy="64" rx="115" ry="58" fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1" strokeDasharray="4 2" />
+                                                        <line x1="10" y1="64" x2="246" y2="64" stroke="rgba(34,211,238,0.1)" strokeWidth="1" />
+                                                        <circle cx="227.6" cy="64" r="7" fill="#ffff00" className="shadow-lg shadow-yellow-400/50" />
+                                                        <text x="227.6" y="84" fill="#ffff00" fontSize="8" fontWeight="bold" textAnchor="middle">SOLE</text>
+                                                        <circle cx="128" cy="6" r="4" fill="#5555ff" />
+                                                        <text x="128" y="-2" fill="#5555ff" fontSize="8" fontWeight="bold" textAnchor="middle">PIANETA</text>
+                                                    </svg>
+                                                </div>
+                                            )}
+                                            {helpPage === 2 && (
+                                                <div className="relative w-full h-full flex flex-col items-center">
+                                                    <svg viewBox="0 0 256 128" className="w-full h-32 overflow-visible mb-6">
+                                                        <ellipse cx="128" cy="64" rx="115" ry="58" fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1" />
+                                                        <circle cx="227.6" cy="64" r="5" fill="#ffff00" />
+                                                        <path d="M 227.6 64 L 243 64 A 115 58 0 0 1 200 112 Z" fill="rgba(34,211,238,0.25)" stroke="#22d3ee" strokeWidth="0.5" />
+                                                        <path d="M 227.6 64 L 13 64 A 115 58 0 0 1 45 20 Z" fill="rgba(34,211,238,0.25)" stroke="#22d3ee" strokeWidth="0.5" />
+                                                        <text x="235" y="118" fill="#22d3ee" fontSize="8" fontWeight="bold">AREA A</text>
+                                                        <text x="15" y="10" fill="#22d3ee" fontSize="8" fontWeight="bold">AREA B</text>
+                                                    </svg>
+                                                    <div className="text-[10px] text-cyan-400/50 tracking-widest font-bold uppercase">AREA A = AREA B se Δt_A = Δt_B</div>
+                                                </div>
+                                            )}
+                                            {helpPage === 3 && (
+                                                <div className="relative w-full h-full flex flex-col items-center">
+                                                    <svg viewBox="0 0 256 128" className="w-full h-32 overflow-visible mb-6">
+                                                        <circle cx="128" cy="64" r="5" fill="#ffff00" />
+                                                        <circle cx="128" cy="64" r="40" fill="none" stroke="rgba(34,211,238,0.15)" strokeWidth="1" />
+                                                        <circle cx="128" cy="64" r="65" fill="none" stroke="rgba(34,211,238,0.1)" strokeWidth="1" />
+                                                        <line x1="128" y1="64" x2="168" y2="64" stroke="rgba(34,211,238,0.4)" strokeWidth="1" />
+                                                        <text x="150" y="60" fill="rgba(34,211,238,0.6)" fontSize="7">R1</text>
+                                                        <line x1="128" y1="64" x2="80" y2="20" stroke="rgba(34,211,238,0.4)" strokeWidth="1" />
+                                                        <text x="100" y="35" fill="rgba(34,211,238,0.6)" fontSize="7">R2</text>
+                                                    </svg>
+                                                    <div className="bg-cyan-400/10 border border-cyan-400/30 px-6 py-2">
+                                                        <span className="text-cyan-400 text-sm font-bold tracking-[0.2em]">T² / R³ = K</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-8 flex justify-between items-center bg-cyan-400/5 p-3 border border-cyan-400/10">
+                                            <button 
+                                                disabled={helpPage === 0}
+                                                onClick={() => setHelpPage(p => p - 1)}
+                                                className="flex items-center gap-2 px-3 py-2 text-[10px] tracking-widest font-bold border border-cyan-400/30 text-cyan-400 hover:bg-cyan-400/10 hover:text-white disabled:opacity-10 transition-all uppercase"
+                                            >
+                                                <ChevronLeft size={14} /> PRECEDENTE
+                                            </button>
+                                            
+                                            <div className="flex gap-2">
+                                                {helpPages.map((_, idx) => (
+                                                    <div 
+                                                        key={idx} 
+                                                        className={`w-8 h-1 transition-all ${idx === helpPage ? 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' : 'bg-white/10'}`} 
+                                                    />
+                                                ))}
+                                            </div>
+
+                                            <button 
+                                                onClick={() => helpPage < helpPages.length - 1 ? setHelpPage(p => p + 1) : setShowHelp(false)}
+                                                className="flex items-center gap-2 px-3 py-2 text-[10px] tracking-widest font-bold bg-cyan-400/20 border border-cyan-400/50 text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all uppercase"
+                                            >
+                                                {helpPage === helpPages.length - 1 ? 'CHIUDI' : 'SUCCESSIVO'} <ChevronRight size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Removed right-side help button as it is already in the left sidebar */}
+
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-gray-700 text-[8px] tracking-[0.5em] uppercase text-center w-full opacity-50 font-bold">
+                        ASTRONOMICA // DESIGN BY ANDREA CRISTOFORI // SYSTEM READY
+                    </div>
+                </div>
+            );
+        }
+
+        createRoot(document.getElementById('root')).render(
+            <React.StrictMode>
+                <App />
+            </React.StrictMode>
+        );
+    </script>
+</body>
+</html>
