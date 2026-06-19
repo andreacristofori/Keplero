@@ -4,20 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Keplero: Orbite Ellittiche</title>
-    <!-- Tailwind CSS CDN -->
+    <script>
+        window.addEventListener('error', function(event) {
+            const err = document.createElement('div');
+            err.style.cssText = 'position:fixed;top:0;left:0;z-index:9999;background:red;color:white;padding:10px;font-size:12px;';
+            err.textContent = 'Error: ' + event.message + ' at ' + event.filename + ':' + event.lineno;
+            document.body.appendChild(err);
+        });
+        window.addEventListener('unhandledrejection', function(event) {
+            const err = document.createElement('div');
+            err.style.cssText = 'position:fixed;top:40px;left:0;z-index:9999;background:orange;color:white;padding:10px;font-size:12px;';
+            err.textContent = 'Promise Error: ' + (event.reason && (event.reason.message || event.reason));
+            document.body.appendChild(err);
+        });
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: JetBrains Mono -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Babel for JSX in-browser transpilation -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
     
     <script type="importmap">
     {
       "imports": {
-        "react": "https://esm.sh/react@19",
-        "react-dom/client": "https://esm.sh/react-dom@19/client",
-        "motion/react": "https://esm.sh/motion@12/react",
-        "lucide-react": "https://esm.sh/lucide-react"
+        "react": "https://esm.sh/react@18.2.0?dev",
+        "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime?dev",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?dev",
+        "react-dom": "https://esm.sh/react-dom@18.2.0?dev",
+        "framer-motion": "https://esm.sh/framer-motion@11.0.3?external=react,react-dom",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0?external=react"
       }
     }
     </script>
@@ -82,13 +95,12 @@
 <body class="bg-[#050505] text-[#d1d5db] select-none">
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
+    <script type="text/babel" data-type="module" crossorigin="anonymous">
         import React, { useEffect, useRef, useState, useMemo } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { motion, AnimatePresence } from 'motion/react';
+        import { motion, AnimatePresence } from 'framer-motion';
         import { 
-            Info, HelpCircle, ChevronLeft, ChevronRight, X, Play, Settings2, Table2, 
-            Circle, Activity, LayoutGrid, Cpu
+            HelpCircle, ChevronLeft, ChevronRight, X, Play, Settings2, Activity, LayoutGrid
         } from 'lucide-react';
 
         const COLORS = {
@@ -183,140 +195,145 @@
                 let animationFrameId;
 
                 const render = () => {
-                    const W = canvas.width;
-                    const H = canvas.height;
-                    const mx = W * 0.6;
-                    const my = H / 2;
+                    try {
+                        const W = canvas.width;
+                        const H = canvas.height;
+                        const mx = W * 0.6;
+                        const my = H / 2;
 
-                    ctx.fillStyle = '#050505';
-                    ctx.fillRect(0, 0, W, H);
+                        ctx.fillStyle = '#050505';
+                        ctx.fillRect(0, 0, W, H);
 
-                    ctx.fillStyle = COLORS.star;
-                    stars.forEach(s => {
-                        ctx.fillRect(s.x % W, s.y % H, s.size, s.size);
-                    });
-
-                    // DRAW FIXED STAR SPHERE
-                    if (vis.stelleFisse) {
-                        const sphereRadius = 800 * zoom;
-                        ctx.save();
-                        ctx.translate(mx, my);
-                        ctx.fillStyle = '#22d3ee';
-                        
-                        starSphereRef.current.forEach(point => {
-                            ctx.globalAlpha = 0.3 + Math.random() * 0.4;
-                            const r = sphereRadius + (point.variance * 3) * zoom;
-                            const px = Math.cos(point.angle) * r;
-                            const py = Math.sin(point.angle) * r;
-                            ctx.fillRect(px, py, 1.2, 1.2);
+                        ctx.fillStyle = COLORS.star;
+                        stars.forEach(s => {
+                            ctx.fillRect(s.x % W, s.y % H, s.size, s.size);
                         });
-                        
-                        // Label
-                        if (vis.nomi && zoom < 1.0) {
-                            ctx.globalAlpha = Math.min(1.0, (1.0 - zoom) * 2);
-                            ctx.font = 'bold 10px JetBrains Mono';
-                            ctx.textAlign = 'center';
-                            ctx.fillText("SFERA DELLE STELLE FISSE", 0, -sphereRadius - 20);
-                            ctx.textAlign = 'start';
+
+                        // DRAW FIXED STAR SPHERE
+                        if (vis.stelleFisse) {
+                            const sphereRadius = 800 * zoom;
+                            ctx.save();
+                            ctx.translate(mx, my);
+                            ctx.fillStyle = '#22d3ee';
+                            
+                            starSphereRef.current.forEach(point => {
+                                ctx.globalAlpha = 0.3 + Math.random() * 0.4;
+                                const r = sphereRadius + (point.variance * 3) * zoom;
+                                const px = Math.cos(point.angle) * r;
+                                const py = Math.sin(point.angle) * r;
+                                ctx.fillRect(px, py, 1.2, 1.2);
+                            });
+                            
+                            // Label
+                            if (vis.nomi && zoom < 1.0) {
+                                ctx.globalAlpha = Math.max(0, Math.min(1.0, (1.0 - zoom) * 2));
+                                ctx.font = 'bold 10px JetBrains Mono';
+                                ctx.textAlign = 'center';
+                                ctx.fillText("SFERA DELLE STELLE FISSE", 0, -sphereRadius - 20);
+                                ctx.textAlign = 'start';
+                            }
+                            ctx.restore();
+                            ctx.globalAlpha = 1.0;
                         }
-                        ctx.restore();
-                        ctx.globalAlpha = 1.0;
-                    }
 
-                    let posTerra = { x: 0, y: 0 };
+                        let posTerra = { x: 0, y: 0 };
 
-                    Object.entries(PLANETS_DATA).forEach(([p, d]) => {
-                        if (p === 'luna') return;
+                        Object.entries(PLANETS_DATA).forEach(([p, d]) => {
+                            if (p === 'luna') return;
 
-                        const b = d.a * Math.sqrt(1 - d.e ** 2);
-                        const f = d.a * d.e * Math.cos(d.inc);
-                        
-                        if (isRunning) {
-                            anglesRef.current[p] += (2.0 * simulationSpeed) / d.p;
-                        }
+                            const b = d.a * Math.sqrt(1 - d.e ** 2);
+                            const f = d.a * d.e * Math.cos(d.inc);
+                            
+                            if (isRunning) {
+                                anglesRef.current[p] += (2.0 * simulationSpeed) / d.p;
+                            }
 
-                        const lx = d.a * Math.cos(anglesRef.current[p]) * Math.cos(d.inc);
-                        const ly = b * Math.sin(anglesRef.current[p]);
-                        
-                        const scale = 2 * zoom;
-                        const fx = mx + ((lx - f) * Math.cos(-d.long) + ly * Math.sin(-d.long)) * scale;
-                        const fy = my + (-(lx - f) * Math.sin(-d.long) + ly * Math.cos(-d.long)) * scale;
+                            const lx = d.a * Math.cos(anglesRef.current[p]) * Math.cos(d.inc);
+                            const ly = b * Math.sin(anglesRef.current[p]);
+                            
+                            const scale = 2 * zoom;
+                            const fx = mx + ((lx - f) * Math.cos(-d.long) + ly * Math.sin(-d.long)) * scale;
+                            const fy = my + (-(lx - f) * Math.sin(-d.long) + ly * Math.cos(-d.long)) * scale;
 
-                        if (p === 'terra') posTerra = { x: fx, y: fy };
+                            if (p === 'terra') posTerra = { x: fx, y: fy };
 
-                        if (vis[p]) {
-                            if (vis.traccia) {
-                                tracesRef.current[p].push({ rx: (fx - mx), ry: (fy - my) });
-                                if (tracesRef.current[p].length > 5000) tracesRef.current[p].shift();
-                                
+                            if (vis[p]) {
+                                if (vis.traccia) {
+                                    tracesRef.current[p].push({ rx: (fx - mx), ry: (fy - my) });
+                                    if (tracesRef.current[p].length > 5000) tracesRef.current[p].shift();
+                                    
+                                    ctx.fillStyle = d.color;
+                                    ctx.globalAlpha = 0.4;
+                                    tracesRef.current[p].forEach(pt => {
+                                        ctx.fillRect(mx + pt.rx, my + pt.ry, 1, 1);
+                                    });
+                                    ctx.globalAlpha = 1.0;
+                                }
+
+                                ctx.shadowBlur = 10;
+                                ctx.shadowColor = d.color;
+                                ctx.beginPath();
+                                ctx.arc(fx, fy, Math.max(1, 4 * Math.sqrt(zoom)), 0, Math.PI * 2);
                                 ctx.fillStyle = d.color;
-                                ctx.globalAlpha = 0.4;
-                                tracesRef.current[p].forEach(pt => {
+                                ctx.fill();
+                                ctx.shadowBlur = 0;
+
+                                if (vis.nomi) {
+                                    ctx.font = '11px JetBrains Mono';
+                                    ctx.fillStyle = d.color;
+                                    ctx.fillText(p.toUpperCase(), fx + 10, fy - 10);
+                                }
+                            }
+                        });
+
+                        ctx.shadowBlur = 20;
+                        ctx.shadowColor = COLORS.sole;
+                        ctx.beginPath();
+                        ctx.arc(mx, my, Math.max(2, 8 * Math.sqrt(zoom)), 0, Math.PI * 2);
+                        ctx.fillStyle = COLORS.sole;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                        
+                        if (vis.nomi) {
+                            ctx.font = 'bold 12px JetBrains Mono';
+                            ctx.fillStyle = COLORS.sole;
+                            ctx.fillText("SOLE", mx - 15, my + 28);
+                        }
+
+                        if (vis.luna && vis.terra) {
+                            const dLuna = PLANETS_DATA.luna;
+                            if (isRunning) {
+                                anglesRef.current.luna += (2.0 * simulationSpeed) / dLuna.p;
+                            }
+                            const lx = posTerra.x + (dLuna.a * Math.cos(anglesRef.current.luna)) * 1.5 * zoom;
+                            const ly = posTerra.y + (dLuna.a * Math.sin(anglesRef.current.luna)) * 1.5 * zoom;
+
+                            if (vis.traccia) {
+                                tracesRef.current.luna.push({ rx: (lx - mx), ry: (ly - my) });
+                                if (tracesRef.current.luna.length > 500) tracesRef.current.luna.shift();
+                                ctx.fillStyle = '#ffffff';
+                                ctx.globalAlpha = 0.3;
+                                tracesRef.current.luna.forEach(pt => {
                                     ctx.fillRect(mx + pt.rx, my + pt.ry, 1, 1);
                                 });
                                 ctx.globalAlpha = 1.0;
                             }
 
-                            ctx.shadowBlur = 10;
-                            ctx.shadowColor = d.color;
                             ctx.beginPath();
-                            ctx.arc(fx, fy, Math.max(1, 4 * Math.sqrt(zoom)), 0, Math.PI * 2);
-                            ctx.fillStyle = d.color;
+                            ctx.arc(lx, ly, Math.max(1, 2 * Math.sqrt(zoom)), 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff';
                             ctx.fill();
-                            ctx.shadowBlur = 0;
-
                             if (vis.nomi) {
-                                ctx.font = '11px JetBrains Mono';
-                                ctx.fillStyle = d.color;
-                                ctx.fillText(p.toUpperCase(), fx + 10, fy - 10);
+                                ctx.font = '9px JetBrains Mono';
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillText("LUNA", lx + 5, ly - 5);
                             }
-
-
                         }
-                    });
-
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = COLORS.sole;
-                    ctx.beginPath();
-                    ctx.arc(mx, my, Math.max(2, 8 * Math.sqrt(zoom)), 0, Math.PI * 2);
-                    ctx.fillStyle = COLORS.sole;
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-                    
-                    if (vis.nomi) {
-                        ctx.font = 'bold 12px JetBrains Mono';
-                        ctx.fillStyle = COLORS.sole;
-                        ctx.fillText("SOLE", mx - 15, my + 28);
-                    }
-
-                    if (vis.luna && vis.terra) {
-                        const dLuna = PLANETS_DATA.luna;
-                        if (isRunning) {
-                            anglesRef.current.luna += (2.0 * simulationSpeed) / dLuna.p;
-                        }
-                        const lx = posTerra.x + (dLuna.a * Math.cos(anglesRef.current.luna)) * 1.5 * zoom;
-                        const ly = posTerra.y + (dLuna.a * Math.sin(anglesRef.current.luna)) * 1.5 * zoom;
-
-                        if (vis.traccia) {
-                            tracesRef.current.luna.push({ rx: (lx - mx), ry: (ly - my) });
-                            if (tracesRef.current.luna.length > 500) tracesRef.current.luna.shift();
-                            ctx.fillStyle = '#ffffff';
-                            ctx.globalAlpha = 0.3;
-                            tracesRef.current.luna.forEach(pt => {
-                                ctx.fillRect(mx + pt.rx, my + pt.ry, 1, 1);
-                            });
-                            ctx.globalAlpha = 1.0;
-                        }
-
-                        ctx.beginPath();
-                        ctx.arc(lx, ly, Math.max(1, 2 * Math.sqrt(zoom)), 0, Math.PI * 2);
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fill();
-                        if (vis.nomi) {
-                            ctx.font = '9px JetBrains Mono';
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillText("LUNA", lx + 5, ly - 5);
-                        }
+                    } catch (e) {
+                        console.error(e);
+                        ctx.fillStyle = 'red';
+                        ctx.font = '20px sans-serif';
+                        ctx.fillText(e.message, 50, 50);
                     }
 
                     animationFrameId = requestAnimationFrame(render);
@@ -688,8 +705,6 @@
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    {/* Removed right-side help button as it is already in the left sidebar */}
 
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-gray-700 text-[8px] tracking-[0.5em] uppercase text-center w-full opacity-50 font-bold">
                         ASTRONOMICA // DESIGN BY ANDREA CRISTOFORI // SYSTEM READY
