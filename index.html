@@ -400,7 +400,7 @@
                     title: "GIOVANNI KEPLERO (1571-1630)",
                     content: [
                         "Giovanni Keplero nacque a Weil in Württemberg nel 1571.",
-                        "Si iscrisse all'università di Tubinga dove fu istruito sul Sistema Copernicano.",
+                        "Si iscrisse all'università di Tubinga dove foi istruito sul Sistema Copernicano.",
                         "Divenne aiutante di Tycho Brahe a Praga nel 1597. Alla morte di Tycho nel 1601,",
                         "gli successe come matematico imperiale. Sfruttando le migliori osservazioni dell'epoca,",
                         "svelò la Meccanica del Sistema Solare.",
@@ -455,8 +455,6 @@
                                 <span className="text-[#22d3ee]">Keplero</span> <span className="font-light italic ml-1">e le orbite ellittiche</span>
                             </h1>
                         </div>
-
-                        <div></div>
                     </div>
 
                     {/* DECORATIVE CORNERS */}
@@ -611,18 +609,18 @@
 
                                     <div className="text-center relative">
                                         <div className="text-[10px] text-cyan-400/50 tracking-[0.5em] mb-3 uppercase">ARCHIVIO STORICO // KEPLER-LOG</div>
-                                        <h2 className="text-lg font-bold text-cyan-300 mb-6 tracking-[0.2em] border-b border-cyan-400/20 pb-3 uppercase">
+                                        <h2 className="text-lg font-bold text-cyan-300 mb-6 tracking-[0.2em] border-b border-cyan-400/20">
                                             {helpPages[helpPage].title}
                                         </h2>
                                         
-                                        <div className="space-y-3 min-h-[120px] flex flex-col justify-center px-4">
-                                            {helpPages[helpPage].content.map((line, i) => (
-                                                <p key={i} className="text-xs leading-relaxed tracking-wider text-gray-400">
-                                                    {line.split(' ').map((word, wi) => {
-                                                        const cleanWord = word.replace(/[",.()]/g, '').toUpperCase();
-                                                        const isHigh = helpPages[helpPage].highlight?.some(h => cleanWord.includes(h));
+                                        <div className="min-h-[180px] flex flex-col justify-center text-left space-y-2 px-4 text-gray-400 leading-relaxed tracking-wide normal-case">
+                                            {helpPages[helpPage].content.map((line, idx) => (
+                                                <p key={idx}>
+                                                    {line.split(' ').map((word, wIdx) => {
+                                                        const cleanWord = word.replace(/[^a-zA-Z0-9]/g, '');
+                                                        const isHighlight = helpPages[helpPage].highlight.includes(cleanWord.toUpperCase());
                                                         return (
-                                                            <span key={wi} className={isHigh ? "text-yellow-400 font-bold" : ""}>
+                                                            <span key={wIdx} className={isHighlight ? 'text-cyan-400 font-bold' : ''}>
                                                                 {word}{' '}
                                                             </span>
                                                         );
@@ -631,73 +629,24 @@
                                             ))}
                                         </div>
 
-                                        <div className="mt-6 flex flex-col items-center justify-center h-44">
-                                            {helpPage === 1 && (
-                                                <div className="relative w-full h-full flex flex-col items-center">
-                                                    <svg viewBox="0 0 256 128" className="w-full h-32 overflow-visible">
-                                                        <ellipse cx="128" cy="64" rx="115" ry="58" fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1" strokeDasharray="4 2" />
-                                                        <line x1="10" y1="64" x2="246" y2="64" stroke="rgba(34,211,238,0.1)" strokeWidth="1" />
-                                                        <circle cx="227.6" cy="64" r="7" fill="#ffff00" className="shadow-lg shadow-yellow-400/50" />
-                                                        <text x="227.6" y="84" fill="#ffff00" fontSize="8" fontWeight="bold" textAnchor="middle">SOLE</text>
-                                                        <circle cx="128" cy="6" r="4" fill="#5555ff" />
-                                                        <text x="128" y="-2" fill="#5555ff" fontSize="8" fontWeight="bold" textAnchor="middle">PIANETA</text>
-                                                    </svg>
-                                                </div>
-                                            )}
-                                            {helpPage === 2 && (
-                                                <div className="relative w-full h-full flex flex-col items-center">
-                                                    <svg viewBox="0 0 256 128" className="w-full h-32 overflow-visible mb-6">
-                                                        <ellipse cx="128" cy="64" rx="115" ry="58" fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1" />
-                                                        <circle cx="227.6" cy="64" r="5" fill="#ffff00" />
-                                                        <path d="M 227.6 64 L 243 64 A 115 58 0 0 1 200 112 Z" fill="rgba(34,211,238,0.25)" stroke="#22d3ee" strokeWidth="0.5" />
-                                                        <path d="M 227.6 64 L 13 64 A 115 58 0 0 1 45 20 Z" fill="rgba(34,211,238,0.25)" stroke="#22d3ee" strokeWidth="0.5" />
-                                                        <text x="235" y="118" fill="#22d3ee" fontSize="8" fontWeight="bold">AREA A</text>
-                                                        <text x="15" y="10" fill="#22d3ee" fontSize="8" fontWeight="bold">AREA B</text>
-                                                    </svg>
-                                                    <div className="text-[10px] text-cyan-400/50 tracking-widest font-bold uppercase">AREA A = AREA B se Δt_A = Δt_B</div>
-                                                </div>
-                                            )}
-                                            {helpPage === 3 && (
-                                                <div className="relative w-full h-full flex flex-col items-center">
-                                                    <svg viewBox="0 0 256 128" className="w-full h-32 overflow-visible mb-6">
-                                                        <circle cx="128" cy="64" r="5" fill="#ffff00" />
-                                                        <circle cx="128" cy="64" r="40" fill="none" stroke="rgba(34,211,238,0.15)" strokeWidth="1" />
-                                                        <circle cx="128" cy="64" r="65" fill="none" stroke="rgba(34,211,238,0.1)" strokeWidth="1" />
-                                                        <line x1="128" y1="64" x2="168" y2="64" stroke="rgba(34,211,238,0.4)" strokeWidth="1" />
-                                                        <text x="150" y="60" fill="rgba(34,211,238,0.6)" fontSize="7">R1</text>
-                                                        <line x1="128" y1="64" x2="80" y2="20" stroke="rgba(34,211,238,0.4)" strokeWidth="1" />
-                                                        <text x="100" y="35" fill="rgba(34,211,238,0.6)" fontSize="7">R2</text>
-                                                    </svg>
-                                                    <div className="bg-cyan-400/10 border border-cyan-400/30 px-6 py-2">
-                                                        <span className="text-cyan-400 text-sm font-bold tracking-[0.2em]">T² / R³ = K</span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="mt-8 flex justify-between items-center bg-cyan-400/5 p-3 border border-cyan-400/10">
+                                        {/* PAGINATION */}
+                                        <div className="flex justify-between items-center mt-8 pt-4 border-t border-cyan-400/10">
                                             <button 
                                                 disabled={helpPage === 0}
-                                                onClick={() => setHelpPage(p => p - 1)}
-                                                className="flex items-center gap-2 px-3 py-2 text-[10px] tracking-widest font-bold border border-cyan-400/30 text-cyan-400 hover:bg-cyan-400/10 hover:text-white disabled:opacity-10 transition-all uppercase"
+                                                onClick={() => setHelpPage(p => Math.max(0, p - 1))}
+                                                className="px-3 py-1 border border-cyan-400/20 text-cyan-400 disabled:opacity-2 disabled:cursor-not-allowed hover:bg-cyan-400/10"
                                             >
-                                                <ChevronLeft size={14} /> PRECEDENTE
+                                                <ChevronLeft size={16} />
                                             </button>
-                                            
-                                            <div className="flex gap-2">
-                                                {helpPages.map((_, idx) => (
-                                                    <div 
-                                                        key={idx} 
-                                                        className={`w-8 h-1 transition-all ${idx === helpPage ? 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' : 'bg-white/10'}`} 
-                                                    />
-                                                ))}
-                                            </div>
-
+                                            <span className="text-[10px] text-cyan-400/40">
+                                                {helpPage + 1} / {helpPages.length}
+                                            </span>
                                             <button 
-                                                onClick={() => helpPage < helpPages.length - 1 ? setHelpPage(p => p + 1) : setShowHelp(false)}
-                                                className="flex items-center gap-2 px-3 py-2 text-[10px] tracking-widest font-bold bg-cyan-400/20 border border-cyan-400/50 text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all uppercase"
+                                                disabled={helpPage === helpPages.length - 1}
+                                                onClick={() => setHelpPage(p => Math.min(helpPages.length - 1, p + 1))}
+                                                className="px-3 py-1 border border-cyan-400/20 text-cyan-400 disabled:opacity-2 disabled:cursor-not-allowed hover:bg-cyan-400/10"
                                             >
-                                                {helpPage === helpPages.length - 1 ? 'CHIUDI' : 'SUCCESSIVO'} <ChevronRight size={14} />
+                                                <ChevronRight size={16} />
                                             </button>
                                         </div>
                                     </div>
@@ -705,19 +654,13 @@
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-gray-700 text-[8px] tracking-[0.5em] uppercase text-center w-full opacity-50 font-bold">
-                        ASTRONOMICA // DESIGN BY ANDREA CRISTOFORI // SYSTEM READY
-                    </div>
                 </div>
             );
         }
 
-        createRoot(document.getElementById('root')).render(
-            <React.StrictMode>
-                <App />
-            </React.StrictMode>
-        );
+        const container = document.getElementById('root');
+        const root = createRoot(container);
+        root.render(<App />);
     </script>
 </body>
 </html>
