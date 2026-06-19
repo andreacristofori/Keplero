@@ -19,7 +19,6 @@
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
 
     <style>
         body {
@@ -50,8 +49,9 @@
 <body class="bg-[#050505] text-[#d1d5db] select-none">
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="react" data-runtime="classic">
+    <script>
         const { useEffect, useRef, useState, useMemo } = React;
+        const e = React.createElement;
 
         const COLORS = {
             mercurio: '#55ffff', venere: '#55ff55', terra: '#5555ff', marte: '#ff5555',
@@ -92,10 +92,10 @@
                 if (target === 'traccia') {
                     setVis(prev => {
                         if (!prev.traccia) Object.keys(tracesRef.current).forEach(k => tracesRef.current[k] = []);
-                        return { ...prev, traccia: !prev.traccia };
+                        return Object.assign({}, prev, { traccia: !prev.traccia });
                     });
                 } else {
-                    setVis(prev => ({ ...prev, [target]: !prev[target] }));
+                    setVis(prev => Object.assign({}, prev, { [target]: !prev[target] }));
                 }
             };
 
@@ -213,65 +213,63 @@
                 }
             ];
 
-            return (
-                <div className="relative w-full h-screen bg-[#050505] overflow-hidden font-mono text-[#d1d5db] select-none text-[12px] uppercase">
-                    <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+            return e('div', { className: "relative w-full h-screen bg-[#050505] overflow-hidden font-mono text-[#d1d5db] select-none text-[12px] uppercase" },
+                e('canvas', { ref: canvasRef, className: "absolute inset-0 z-0" }),
+                
+                e('div', { className: "absolute top-0 left-0 w-full p-8 flex justify-between items-start z-10 pointer-events-none" },
+                    e('div', { className: "pointer-events-auto" },
+                        e('div', { className: "text-[10px] text-[#22d3ee] font-bold tracking-[0.4em] mb-1" }, "ANDREA CRISTOFORI"),
+                        e('h1', { className: "text-xl md:text-2xl font-bold text-white tracking-[0.1em]" },
+                            e('span', { className: "text-[#22d3ee]" }, "Keplero"),
+                            e('span', { className: "font-light italic ml-1" }, " e le orbite ellittiche")
+                        )
+                    )
+                ),
 
-                    <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-10 pointer-events-none">
-                        <div className="pointer-events-auto">
-                            <div className="text-[10px] text-[#22d3ee] font-bold tracking-[0.4em] mb-1">ANDREA CRISTOFORI</div>
-                            <h1 className="text-xl md:text-2xl font-bold text-white tracking-[0.1em]">
-                                <span className="text-[#22d3ee]">Keplero</span> <span className="font-light italic ml-1">e le orbite ellittiche</span>
-                            </h1>
-                        </div>
-                    </div>
+                e('div', { className: "absolute top-24 left-6 bottom-8 w-60 flex flex-col gap-3 z-10" },
+                    e('div', { className: "p-2.5 hud-border flex-1 flex flex-col min-h-0" },
+                        e('div', { className: "corner-bl" }), e('div', { className: "corner-br" }),
+                        e('div', { className: "text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-2 tracking-[0.15em] text-[10px] mb-2" }, "⚙ OGGETTI CELESTI"),
+                        e('div', { className: "flex-1 overflow-y-auto space-y-1.5" },
+                            Object.keys(PLANETS_DATA).map(key => 
+                                e('div', { key: key, className: "flex items-center gap-3 cursor-pointer py-1 px-2 hover:bg-white/5", onClick: () => toggleOption(key) },
+                                    e('div', { className: "w-3 h-3 border", style: { backgroundColor: vis[key] ? PLANETS_DATA[key].color : 'transparent', borderColor: vis[key] ? PLANETS_DATA[key].color : '#374151' } }),
+                                    e('span', { className: `text-[10px] tracking-widest ${vis[key] ? 'text-white' : 'text-gray-600'}` }, key)
+                                )
+                            )
+                        )
+                    ),
 
-                    <div className="absolute top-24 left-6 bottom-8 w-60 flex flex-col gap-3 z-10">
-                        <div className="p-2.5 hud-border flex-1 flex flex-col min-h-0">
-                            <div className="corner-bl"></div><div className="corner-br"></div>
-                            <div className="text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-2 tracking-[0.15em] text-[10px] mb-2">⚙ OGGETTI CELESTI</div>
-                            <div className="flex-1 overflow-y-auto space-y-1.5">
-                                {Object.keys(PLANETS_DATA).map(key => (
-                                    <div key={key} className="flex items-center gap-3 cursor-pointer py-1 px-2 hover:bg-white/5" onClick={() => toggleOption(key)}>
-                                        <div className="w-3 h-3 border" style={{ backgroundColor: vis[key] ? PLANETS_DATA[key].color : 'transparent', borderColor: vis[key] ? PLANETS_DATA[key].color : '#374151' }}></div>
-                                        <span className={`text-[10px] tracking-widest ${vis[key] ? 'text-white' : 'text-gray-600'}`}>{key}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                    e('div', { className: "p-2.5 hud-border" },
+                        e('div', { className: "corner-bl" }), e('div', { className: "corner-br" }),
+                        e('div', { className: "text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 text-[10px] mb-2" }, "👁 VISIBILITÀ"),
+                        e('div', { className: "grid grid-cols-2 gap-2" },
+                            e('button', { onClick: () => toggleOption('traccia'), className: `py-1 text-[9px] font-bold border ${vis.traccia ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600'}` }, "ORBITE"),
+                            e('button', { onClick: () => toggleOption('nomi'), className: `py-1 text-[9px] font-bold border ${vis.nomi ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600'}` }, "NOMI")
+                        )
+                    ),
 
-                        <div className="p-2.5 hud-border">
-                            <div className="corner-bl"></div><div className="corner-br"></div>
-                            <div className="text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 text-[10px] mb-2">👁 VISIBILITÀ</div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => toggleOption('traccia')} className={`py-1 text-[9px] font-bold border ${vis.traccia ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600'}`}>ORBITE</button>
-                                <button onClick={() => toggleOption('nomi')} className={`py-1 text-[9px] font-bold border ${vis.nomi ? 'bg-[#22d3ee]/20 border-[#22d3ee] text-white' : 'border-gray-700 text-gray-600'}`}>NOMI</button>
-                            </div>
-                        </div>
+                    e('div', { className: "p-2.5 hud-border" },
+                        e('div', { className: "corner-bl" }), e('div', { className: "corner-br" }),
+                        e('div', { className: "text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 text-[10px] mb-2" }, `⏱ TEMPO (${simulationSpeed.toFixed(1)}X)`),
+                        e('input', { type: "range", min: "0", max: "10", step: "0.5", value: simulationSpeed, onChange: (e) => setSimulationSpeed(parseFloat(e.target.value)), className: "w-full accent-[#22d3ee]" })
+                    ),
 
-                        <div className="p-2.5 hud-border">
-                            <div className="corner-bl"></div><div className="corner-br"></div>
-                            <div className="text-[#22d3ee] font-bold border-b border-[#22d3ee]/20 pb-1 text-[#22d3ee] text-[10px] mb-2">⏱ TEMPO ({simulationSpeed.toFixed(1)}X)</div>
-                            <input type="range" min="0" max="10" step="0.5" value={simulationSpeed} onChange={(e) => setSimulationSpeed(parseFloat(e.target.value))} className="w-full accent-[#22d3ee]" />
-                        </div>
+                    e('button', { onClick: () => setShowHelp(true), className: "bg-[#22d3ee] text-black font-bold py-2 tracking-[0.4em] text-[10px] hover:bg-white transition-all" }, "GUIDA")
+                ),
 
-                        <button onClick={() => setShowHelp(true)} className="bg-[#22d3ee] text-black font-bold py-2 tracking-[0.4em] text-[10px] hover:bg-white transition-all">GUIDA</button>
-                    </div>
-
-                    {showHelp && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-                            <div className="bg-[#0a0a0a] border-2 border-cyan-400/30 max-w-lg w-full p-6 relative">
-                                <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-cyan-400/50 hover:text-cyan-400 font-bold">[X]</button>
-                                <h2 className="text-md font-bold text-cyan-300 mb-4 tracking-[0.2em] border-b border-cyan-400/20">{helpPages[helpPage].title}</h2>
-                                <div className="text-gray-400 space-y-2 normal-case">{helpPages[helpPage].content.map((l, i) => <p key={i}>{l}</p>)}</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                showHelp && e('div', { className: "fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md" },
+                    e('div', { className: "bg-[#0a0a0a] border-2 border-cyan-400/30 max-w-lg w-full p-6 relative" },
+                        e('button', { onClick: () => setShowHelp(false), className: "absolute top-4 right-4 text-cyan-400/50 hover:text-cyan-400 font-bold" }, "[X]"),
+                        e('h2', { className: "text-md font-bold text-cyan-300 mb-4 tracking-[0.2em] border-b border-cyan-400/20" }, helpPages[helpPage].title),
+                        e('div', { className: "text-gray-400 space-y-2 normal-case" }, helpPages[helpPage].content.map((l, i) => e('p', { key: i }, l)))
+                    )
+                )
             );
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        const root = RoyalReactDOM = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(e(App));
     </script>
 </body>
 </html>
